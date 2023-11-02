@@ -613,6 +613,12 @@ __owur int SSL_check_chain(SSL *s, X509 *x, EVP_PKEY *pk, STACK_OF(X509) *chain)
 # define TLS1_3_CK_AES_128_CCM_SHA256                     0x03001304
 # define TLS1_3_CK_AES_128_CCM_8_SHA256                   0x03001305
 
+/* https://tools.ietf.org/html/draft-smyshlyaev-tls13-gost-suites */
+# define TLS_GOSTR341112_256_WITH_KUZNYECHIK_MGM_L        0x0300C103
+# define TLS_GOSTR341112_256_WITH_MAGMA_MGM_L             0x0300C104
+# define TLS_GOSTR341112_256_WITH_KUZNYECHIK_MGM_S        0x0300C105
+# define TLS_GOSTR341112_256_WITH_MAGMA_MGM_S             0x0300C106
+
 /* Aria ciphersuites from RFC6209 */
 # define TLS1_CK_RSA_WITH_ARIA_128_GCM_SHA256             0x0300C050
 # define TLS1_CK_RSA_WITH_ARIA_256_GCM_SHA384             0x0300C051
@@ -1135,8 +1141,10 @@ __owur int SSL_check_chain(SSL *s, X509 *x, EVP_PKEY *pk, STACK_OF(X509) *chain)
 # define TLS_CT_RSA_FIXED_ECDH           65
 # define TLS_CT_ECDSA_FIXED_ECDH         66
 # define TLS_CT_GOST01_SIGN              22
-# define TLS_CT_GOST12_SIGN              238
-# define TLS_CT_GOST12_512_SIGN          239
+# define TLS_CT_GOST12_SIGN              67 
+# define TLS_CT_GOST12_512_SIGN          68
+# define TLS_CT_GOST12_SIGN_LEGACY       238
+# define TLS_CT_GOST12_512_SIGN_LEGACY   239
 
 /*
  * when correcting this number, correct also SSL3_CT_NUMBER in ssl3.h (see

@@ -20,6 +20,9 @@
 # define EVP_MAX_KEY_LENGTH              64
 # define EVP_MAX_IV_LENGTH               16
 # define EVP_MAX_BLOCK_LENGTH            32
+# define EVP_MAX_AEAD_TAG_LEN            16/* longest known AEAD tag size */
+
+#define EVP_MAX_MAC_SIZE EVP_MAX_AEAD_TAG_LEN
 
 # define PKCS5_SALT_LEN                  8
 /* Default PKCS#5 iteration count */
@@ -139,6 +142,7 @@ int (*EVP_MD_meth_get_ctrl(const EVP_MD *md))(EVP_MD_CTX *ctx, int cmd,
 #  define EVP_MD_CTRL_DIGALGID                    0x1
 #  define EVP_MD_CTRL_MICALG                      0x2
 #  define EVP_MD_CTRL_XOF_LEN                     0x3
+#  define EVP_MD_CTRL_TLSTREE                     0x4
 
 /* Minimum Algorithm specific ctrl value */
 
@@ -277,8 +281,9 @@ int (*EVP_CIPHER_meth_get_ctrl(const EVP_CIPHER *cipher))(EVP_CIPHER_CTX *,
 # define         EVP_CIPH_FLAG_AEAD_CIPHER       0x200000
 # define         EVP_CIPH_FLAG_TLS1_1_MULTIBLOCK 0x400000
 /* Cipher can handle pipeline operations */
-# define         EVP_CIPH_FLAG_PIPELINE          0X800000
-
+# define         EVP_CIPH_FLAG_PIPELINE          0x800000
+# define         EVP_CIPH_FLAG_CIPHER_WITH_MAC  0x1000000
+# define         EVP_CIPH_FLAG_GET_WRAP_CIPHER     0X4000000
 /*
  * Cipher context flag to indicate we can handle wrap mode: if allowed in
  * older applications it could overflow buffers.
@@ -352,6 +357,20 @@ int (*EVP_CIPHER_meth_get_ctrl(const EVP_CIPHER *cipher))(EVP_CIPHER_CTX *,
 # define         EVP_CTRL_SET_PIPELINE_INPUT_LENS        0x24
 
 # define         EVP_CTRL_GET_IVLEN                      0x25
+/* Indicates TLSTREE key diversification during TLS processing */
+# define         EVP_CTRL_TLSTREE                        0x26
+
+#define          EVP_CTRL_AEAD_MAX_TAG_LEN               0x27
+# define         EVP_CTRL_GET_WRAP_CIPHER                0X28
+
+# define         EVP_CTRL_GET_MAC_LEN                    EVP_CTRL_AEAD_MAX_TAG_LEN
+# define         EVP_CTRL_GET_MAC                        EVP_CTRL_AEAD_GET_TAG
+# define         EVP_CTRL_SET_EXPECTED_MAC               EVP_CTRL_AEAD_SET_TAG
+/* GOST CMS requires processing unprotected attributes in some cases*/
+# define         EVP_CTRL_PROCESS_UNPROTECTED            0x29
+/* Set GOST TLSTREE params */
+# define         EVP_CTRL_SET_TLSTREE_PARAMS             0x2A
+
 
 /* Padding modes */
 #define EVP_PADDING_PKCS7       1
@@ -389,6 +408,10 @@ typedef struct {
 # define EVP_CCM_TLS_TAG_LEN                             16
 /* Length of CCM8 tag for TLS */
 # define EVP_CCM8_TLS_TAG_LEN                            8
+
+/* GOST TLS 1.3 tag lengths */
+# define EVP_MAGMA_TLS_TAG_LEN                           8
+# define EVP_KUZNYECHIK_TLS_TAG_LEN                      16
 
 /* Length of tag for TLS */
 # define EVP_CHACHAPOLY_TLS_TAG_LEN                      16
@@ -1142,6 +1165,10 @@ int EVP_PBE_get(int *ptype, int *ppbe_nid, size_t num);
 # define ASN1_PKEY_CTRL_SET1_TLS_ENCPT   0x9
 # define ASN1_PKEY_CTRL_GET1_TLS_ENCPT   0xa
 
+/* This control use for decryption */
+/* when algorithm support multiple ri types */
+# define ASN1_PKEY_CTRL_CMS_IS_RI_TYPE_SUPPORTED      0xb
+
 int EVP_PKEY_asn1_get_count(void);
 const EVP_PKEY_ASN1_METHOD *EVP_PKEY_asn1_get0(int idx);
 const EVP_PKEY_ASN1_METHOD *EVP_PKEY_asn1_find(ENGINE **pe, int type);
@@ -1315,6 +1342,8 @@ void EVP_PKEY_asn1_set_security_bits(EVP_PKEY_ASN1_METHOD *ameth,
 # define EVP_PKEY_CTRL_GET_MD            13
 
 # define EVP_PKEY_CTRL_SET_DIGEST_SIZE   14
+/* Used for GOST curves that have more than one name */
+# define EVP_PKEY_CTRL_PARAMS_MATCH      15
 
 # define EVP_PKEY_ALG_CTRL               0x1000
 

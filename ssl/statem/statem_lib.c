@@ -410,7 +410,6 @@ MSG_PROCESS_RETURN tls_process_cert_verify(SSL *s, PACKET *pkt)
                 md == NULL ? "n/a" : EVP_MD_name(md));
 #endif
 
-    /* Check for broken implementations of GOST ciphersuites */
     /*
      * If key is GOST and len is exactly 64 or 128, it is signature without
      * length field (CryptoPro implementations at least till TLS 1.2)
@@ -1539,8 +1538,6 @@ static int is_tls13_capable(const SSL *s)
         switch (i) {
         case SSL_PKEY_DSA_SIGN:
         case SSL_PKEY_GOST01:
-        case SSL_PKEY_GOST12_256:
-        case SSL_PKEY_GOST12_512:
             continue;
         default:
             break;

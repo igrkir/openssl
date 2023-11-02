@@ -169,6 +169,18 @@ static const TLS_GROUP_INFO nid_list[] = {
     {NID_brainpoolP512r1, 256, TLS_CURVE_PRIME}, /* brainpool512r1 (28) */
     {EVP_PKEY_X25519, 128, TLS_CURVE_CUSTOM}, /* X25519 (29) */
     {EVP_PKEY_X448, 224, TLS_CURVE_CUSTOM}, /* X448 (30) */
+#ifndef OPENSSL_NO_GOST
+    {NID_undef, 0, TLS_CURVE_CUSTOM}, /* 31 */
+    {NID_undef, 0, TLS_CURVE_CUSTOM}, /* 32 */
+    {NID_undef, 0, TLS_CURVE_CUSTOM}, /* 33 */
+    {NID_id_tc26_gost_3410_2012_256_paramSetA, 128, TLS_CURVE_GOST},
+    {NID_id_tc26_gost_3410_2012_256_paramSetB, 128, TLS_CURVE_GOST},
+    {NID_id_tc26_gost_3410_2012_256_paramSetC, 128, TLS_CURVE_GOST},
+    {NID_id_tc26_gost_3410_2012_256_paramSetD, 128, TLS_CURVE_GOST},
+    {NID_id_tc26_gost_3410_2012_512_paramSetA, 256, TLS_CURVE_GOST},
+    {NID_id_tc26_gost_3410_2012_512_paramSetB, 256, TLS_CURVE_GOST},
+    {NID_id_tc26_gost_3410_2012_512_paramSetC, 256, TLS_CURVE_GOST},
+#endif
 };
 
 static const unsigned char ecformats_default[] = {
@@ -184,6 +196,15 @@ static const uint16_t eccurves_default[] = {
     30,                      /* X448 (30) */
     25,                      /* secp521r1 (25) */
     24,                      /* secp384r1 (24) */
+#ifndef OPENSSL_NO_GOST
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+#endif
 };
 
 static const uint16_t suiteb_curves[] = {
@@ -195,6 +216,8 @@ const TLS_GROUP_INFO *tls1_group_id_lookup(uint16_t group_id)
 {
     /* ECC curves from RFC 4492 and RFC 7027 */
     if (group_id < 1 || group_id > OSSL_NELEM(nid_list))
+        return NULL;
+    if (nid_list[group_id - 1].nid == NID_undef)
         return NULL;
     return &nid_list[group_id - 1];
 }
@@ -380,6 +403,33 @@ typedef struct {
     int nid_arr[MAX_CURVELIST];
 } nid_cb_st;
 
+#ifndef OPENSSL_NO_GOST
+typedef struct {
+    const char *name;           /* Name of GOST curve */
+    int nid;                    /* Curve NID */
+} EC_GOST_NAME;
+
+static EC_GOST_NAME gost_curves[] = {
+    {"GC256A", NID_id_tc26_gost_3410_2012_256_paramSetA},
+    {"GC256B", NID_id_tc26_gost_3410_2012_256_paramSetB},
+    {"GC256C", NID_id_tc26_gost_3410_2012_256_paramSetC},
+    {"GC256D", NID_id_tc26_gost_3410_2012_256_paramSetD},
+    {"GC512A", NID_id_tc26_gost_3410_2012_512_paramSetA},
+    {"GC512B", NID_id_tc26_gost_3410_2012_512_paramSetB},
+    {"GC512C", NID_id_tc26_gost_3410_2012_512_paramSetC},
+};
+
+int GOST_curve2nid(const char *name)
+{
+    size_t i;
+    for (i = 0; i < OSSL_NELEM(gost_curves); i++) {
+        if (strcmp(gost_curves[i].name, name) == 0)
+            return gost_curves[i].nid;
+    }
+    return NID_undef;
+}
+#endif
+
 static int nid_cb(const char *elem, int len, void *arg)
 {
     nid_cb_st *narg = arg;
@@ -395,6 +445,11 @@ static int nid_cb(const char *elem, int len, void *arg)
     memcpy(etmp, elem, len);
     etmp[len] = 0;
     nid = EC_curve_nist2nid(etmp);
+#ifndef OPENSSL_NO_GOST
+		/* FIXME beldmit */
+    if (nid == NID_undef)
+        nid = GOST_curve2nid(etmp);
+#endif
     if (nid == NID_undef)
         nid = OBJ_sn2nid(etmp);
     if (nid == NID_undef)
@@ -670,8 +725,17 @@ static const uint16_t tls12_sigalgs[] = {
     TLSEXT_SIGALG_dsa_sha512,
 #endif
 #ifndef OPENSSL_NO_GOST
+    TLSEXT_SIGALG_gostr34102012_256a,
+    TLSEXT_SIGALG_gostr34102012_256b,
+    TLSEXT_SIGALG_gostr34102012_256c,
+    TLSEXT_SIGALG_gostr34102012_256d,
+    TLSEXT_SIGALG_gostr34102012_512a,
+    TLSEXT_SIGALG_gostr34102012_512b,
+    TLSEXT_SIGALG_gostr34102012_512c,
     TLSEXT_SIGALG_gostr34102012_256_gostr34112012_256,
     TLSEXT_SIGALG_gostr34102012_512_gostr34112012_512,
+    TLSEXT_SIGALG_gostr34102012_256_gostr34112012_256_legacy,
+    TLSEXT_SIGALG_gostr34102012_512_gostr34112012_512_legacy,
     TLSEXT_SIGALG_gostr34102001_gostr3411,
 #endif
 };
@@ -758,11 +822,47 @@ static const SIGALG_LOOKUP sigalg_lookup_tbl[] = {
      NID_dsaWithSHA1, NID_undef},
 #endif
 #ifndef OPENSSL_NO_GOST
+    {"gostr34102012_256a", TLSEXT_SIGALG_gostr34102012_256a,
+     NID_id_GostR3411_2012_256, SSL_MD_GOST12_256_IDX,
+     NID_id_GostR3410_2012_256, SSL_PKEY_GOST12_256,
+     NID_undef, NID_id_tc26_gost_3410_2012_256_paramSetA},
+    {"gostr34102012_256b", TLSEXT_SIGALG_gostr34102012_256b,
+     NID_id_GostR3411_2012_256, SSL_MD_GOST12_256_IDX,
+     NID_id_GostR3410_2012_256, SSL_PKEY_GOST12_256,
+     NID_undef, NID_id_tc26_gost_3410_2012_256_paramSetB},
+    {"gostr34102012_256c", TLSEXT_SIGALG_gostr34102012_256c,
+     NID_id_GostR3411_2012_256, SSL_MD_GOST12_256_IDX,
+     NID_id_GostR3410_2012_256, SSL_PKEY_GOST12_256,
+     NID_undef, NID_id_tc26_gost_3410_2012_256_paramSetC},
+    {"gostr34102012_256d", TLSEXT_SIGALG_gostr34102012_256d,
+     NID_id_GostR3411_2012_256, SSL_MD_GOST12_256_IDX,
+     NID_id_GostR3410_2012_256, SSL_PKEY_GOST12_256,
+     NID_undef, NID_id_tc26_gost_3410_2012_256_paramSetD},
+    {"gostr34102012_512a", TLSEXT_SIGALG_gostr34102012_512a,
+     NID_id_GostR3411_2012_512, SSL_MD_GOST12_512_IDX,
+     NID_id_GostR3410_2012_512, SSL_PKEY_GOST12_512,
+     NID_undef, NID_id_tc26_gost_3410_2012_512_paramSetA},
+    {"gostr34102012_512b", TLSEXT_SIGALG_gostr34102012_512b,
+     NID_id_GostR3411_2012_512, SSL_MD_GOST12_512_IDX,
+     NID_id_GostR3410_2012_512, SSL_PKEY_GOST12_512,
+     NID_undef, NID_id_tc26_gost_3410_2012_512_paramSetB},
+    {"gostr34102012_512c", TLSEXT_SIGALG_gostr34102012_512c,
+     NID_id_GostR3411_2012_512, SSL_MD_GOST12_512_IDX,
+     NID_id_GostR3410_2012_512, SSL_PKEY_GOST12_512,
+     NID_undef, NID_id_tc26_gost_3410_2012_512_paramSetC},
     {NULL, TLSEXT_SIGALG_gostr34102012_256_gostr34112012_256,
      NID_id_GostR3411_2012_256, SSL_MD_GOST12_256_IDX,
      NID_id_GostR3410_2012_256, SSL_PKEY_GOST12_256,
      NID_undef, NID_undef},
     {NULL, TLSEXT_SIGALG_gostr34102012_512_gostr34112012_512,
+     NID_id_GostR3411_2012_512, SSL_MD_GOST12_512_IDX,
+     NID_id_GostR3410_2012_512, SSL_PKEY_GOST12_512,
+     NID_undef, NID_undef},
+    {NULL, TLSEXT_SIGALG_gostr34102012_256_gostr34112012_256_legacy,
+     NID_id_GostR3411_2012_256, SSL_MD_GOST12_256_IDX,
+     NID_id_GostR3410_2012_256, SSL_PKEY_GOST12_256,
+     NID_undef, NID_undef},
+    {NULL, TLSEXT_SIGALG_gostr34102012_512_gostr34112012_512_legacy,
      NID_id_GostR3411_2012_512, SSL_MD_GOST12_512_IDX,
      NID_id_GostR3410_2012_512, SSL_PKEY_GOST12_512,
      NID_undef, NID_undef},
@@ -879,6 +979,24 @@ static const SIGALG_LOOKUP *tls1_get_legacy_sigalg(const SSL *s, int idx)
                 int real_idx;
 
                 for (real_idx = SSL_PKEY_GOST12_512; real_idx >= SSL_PKEY_GOST01;
+                     real_idx--) {
+                    if (s->cert->pkeys[real_idx].privatekey != NULL) {
+                        idx = real_idx;
+                        break;
+                    }
+                }
+            }
+            /*
+             * Here is another fallback: when broken implementations did not sent
+             * proper signature_algorithm extension, we try to use this function.
+             *
+             * As both SSL_PKEY_GOST12_512 and SSL_PKEY_GOST12_256 indices can be used
+             * with new (aGOST12-only) ciphersuites, we should find out which one is available really.
+             * */
+            else if (idx == SSL_PKEY_GOST12_256) {
+                int real_idx;
+
+                for (real_idx = SSL_PKEY_GOST12_512; real_idx >= SSL_PKEY_GOST12_256;
                      real_idx--) {
                     if (s->cert->pkeys[real_idx].privatekey != NULL) {
                         idx = real_idx;
@@ -1612,10 +1730,8 @@ static int tls12_sigalg_allowed(const SSL *s, int op, const SIGALG_LOOKUP *lu)
     if (ssl_cert_is_disabled(lu->sig_idx))
         return 0;
 
-    if (lu->sig == NID_id_GostR3410_2012_256
-            || lu->sig == NID_id_GostR3410_2012_512
-            || lu->sig == NID_id_GostR3410_2001) {
-        /* We never allow GOST sig algs on the server with TLSv1.3 */
+    if (lu->sig == NID_id_GostR3410_2001) {
+        /* GOST sig algs on the server with TLSv1.3 are allowed for GOST2012 */
         if (s->server && SSL_IS_TLS13(s))
             return 0;
         if (!s->server
@@ -1643,7 +1759,7 @@ static int tls12_sigalg_allowed(const SSL *s, int op, const SIGALG_LOOKUP *lu)
                 if (ssl_cipher_disabled(s, c, SSL_SECOP_CIPHER_SUPPORTED, 0))
                     continue;
 
-                if ((c->algorithm_mkey & SSL_kGOST) != 0)
+                if ((c->algorithm_mkey & (SSL_kGOST | SSL_kGOST18)) != 0)
                     break;
             }
             if (i == num)
@@ -2723,6 +2839,26 @@ static const SIGALG_LOOKUP *find_sig_alg(SSL *s, X509 *x, EVP_PKEY *pkey)
             if (!rsa_pss_check_min_key_size(EVP_PKEY_get0(tmppkey), lu))
                 continue;
         }
+#ifndef OPENSSL_NO_GOST
+        else if (lu->sig == NID_id_GostR3410_2012_256
+                 || lu->sig == NID_id_GostR3410_2012_512) {
+          EVP_PKEY_CTX *tmp = EVP_PKEY_CTX_new(tmppkey, NULL);
+          int found = 0;
+
+          if (tmp == NULL)
+              continue;
+          if (EVP_PKEY_sign_init(tmp) != 1) {
+              EVP_PKEY_CTX_free(tmp);
+              continue;
+          }
+
+          /* содержательное совпадение параметров с параметрами ключа */
+          found = (EVP_PKEY_CTX_ctrl(tmp, -1, -1, EVP_PKEY_CTRL_PARAMS_MATCH, lu->curve, NULL) > 0);
+          EVP_PKEY_CTX_free(tmp);
+          if (!found)
+              continue;
+        }
+#endif
         break;
     }
 

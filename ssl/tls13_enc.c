@@ -429,6 +429,22 @@ static int derive_secret_key_and_iv(SSL *s, int sending, const EVP_MD *md,
         goto err;
     }
 
+    if (s->s3->tmp.new_cipher != NULL
+        && s->s3->tmp.new_cipher->algorithm2 & TLS1_TLSTREE) {
+      int res = 0;
+      if (s->s3->tmp.new_cipher->algorithm2 & TLS1_TLSTREE_S) {
+          res = EVP_CIPHER_CTX_ctrl(ciph_ctx, EVP_CTRL_SET_TLSTREE_PARAMS, 0, "short");
+      } else if (s->s3->tmp.new_cipher->algorithm2 & TLS1_TLSTREE_L) {
+          res = EVP_CIPHER_CTX_ctrl(ciph_ctx, EVP_CTRL_SET_TLSTREE_PARAMS, 0, "long");
+      }
+
+      if (res <= 0) {
+          SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_DERIVE_SECRET_KEY_AND_IV,
+                   ERR_R_EVP_LIB);
+          goto err;
+      }
+    }
+
     return 1;
  err:
     OPENSSL_cleanse(key, sizeof(key));

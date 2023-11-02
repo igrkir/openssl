@@ -107,6 +107,10 @@ int tls13_enc(SSL *s, SSL3_RECORD *recs, size_t n_recs, int sending)
         taglen = EVP_GCM_TLS_TAG_LEN;
     } else if (alg_enc & SSL_CHACHA20) {
         taglen = EVP_CHACHAPOLY_TLS_TAG_LEN;
+    } else if (alg_enc & SSL_MAGMA_MGM) {
+        taglen = EVP_MAGMA_TLS_TAG_LEN;
+    } else if (alg_enc & SSL_KUZNYECHIK_MGM) {
+        taglen = EVP_KUZNYECHIK_TLS_TAG_LEN;
     } else {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS13_ENC,
                  ERR_R_INTERNAL_ERROR);
@@ -134,6 +138,16 @@ int tls13_enc(SSL *s, SSL3_RECORD *recs, size_t n_recs, int sending)
     memcpy(iv, staticiv, offset);
     for (loop = 0; loop < SEQ_NUM_SIZE; loop++)
         iv[offset + loop] = staticiv[offset + loop] ^ seq[loop];
+
+    if (s->s3->tmp.new_cipher != NULL
+        && s->s3->tmp.new_cipher->algorithm2 & TLS1_TLSTREE) {
+        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_TLSTREE,
+                                0, seq) <= 0) {
+            SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS13_ENC,
+                     ERR_R_INTERNAL_ERROR);
+            return -1;
+        }
+    }
 
     /* Increment the sequence counter */
     for (loop = SEQ_NUM_SIZE; loop > 0; loop--) {

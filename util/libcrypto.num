@@ -4591,3 +4591,8 @@ X509_ALGOR_copy                         4544	1_1_1h	EXIST::FUNCTION:
 X509_REQ_set0_signature                 4545	1_1_1h	EXIST::FUNCTION:
 X509_REQ_set1_signature_algo            4546	1_1_1h	EXIST::FUNCTION:
 EC_KEY_decoded_from_explicit_params     4547	1_1_1h	EXIST::FUNCTION:EC
+CMS_RecipientInfo_kari_set0_pkey_and_peer 4548	1_1_1m	EXIST::FUNCTION:CMS
+PKCS8_pkey_add1_attr                    4549	1_1_1m	EXIST::FUNCTION:
+CMS_decrypt_set1_pkey_and_peer          4550	1_1_1m	EXIST::FUNCTION:CMS
+PKCS8_pkey_add1_attr_by_OBJ             4551	1_1_1m	EXIST::FUNCTION:
+CMS_add1_recipient                      4552	1_1_1m	EXIST::FUNCTION:CMS

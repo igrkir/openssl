@@ -944,6 +944,8 @@ int tls1_enc(SSL *s, SSL3_RECORD *recs, size_t n_recs, int sending)
     unsigned char padval;
     int imac_size;
     const EVP_CIPHER *enc;
+    int tlstree_enc = (sending ? (s->mac_flags & SSL_MAC_FLAG_WRITE_MAC_TLSTREE)
+                      : (s->mac_flags & SSL_MAC_FLAG_READ_MAC_TLSTREE));
 
     if (n_recs == 0) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS1_ENC,
@@ -1036,7 +1038,6 @@ int tls1_enc(SSL *s, SSL3_RECORD *recs, size_t n_recs, int sending)
 
                 seq = sending ? RECORD_LAYER_get_write_sequence(&s->rlayer)
                     : RECORD_LAYER_get_read_sequence(&s->rlayer);
-
                 if (SSL_IS_DTLS(s)) {
                     /* DTLS does not support pipelining */
                     unsigned char dtlsseq[8], *p = dtlsseq;
@@ -1120,6 +1121,27 @@ int tls1_enc(SSL *s, SSL3_RECORD *recs, size_t n_recs, int sending)
                          SSL_R_PIPELINE_FAILURE);
                 return -1;
             }
+        }
+
+        if (!SSL_IS_DTLS(s) && tlstree_enc) {
+          unsigned char *seq;
+          int decrement_seq = 0;
+          /*
+           * When sending, seq is incremented after MAC calculation.
+           * So if we are in ETM mode, we use seq 'as is' in the ctrl-function.
+           * Otherwise we have to decrease it in the implementation
+           */
+          if (sending && !SSL_WRITE_ETM(s))
+              decrement_seq = 1;
+
+          seq = sending ? RECORD_LAYER_get_write_sequence(&s->rlayer)
+            : RECORD_LAYER_get_read_sequence(&s->rlayer);
+          if(EVP_CIPHER_CTX_ctrl(ds, EVP_CTRL_TLSTREE, decrement_seq, seq) <= 0)
+          {
+            SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS1_ENC,
+                ERR_R_INTERNAL_ERROR);
+            return -1;
+          }
         }
 
         /* TODO(size_t): Convert this call */
@@ -1287,6 +1309,8 @@ int tls1_mac(SSL *ssl, SSL3_RECORD *rec, unsigned char *md, int sending)
     unsigned char header[13];
     int stream_mac = (sending ? (ssl->mac_flags & SSL_MAC_FLAG_WRITE_MAC_STREAM)
                       : (ssl->mac_flags & SSL_MAC_FLAG_READ_MAC_STREAM));
+    int tlstree_mac = (sending ? (ssl->mac_flags & SSL_MAC_FLAG_WRITE_MAC_TLSTREE)
+                      : (ssl->mac_flags & SSL_MAC_FLAG_READ_MAC_TLSTREE));
     int t;
 
     if (sending) {
@@ -1312,6 +1336,11 @@ int tls1_mac(SSL *ssl, SSL3_RECORD *rec, unsigned char *md, int sending)
             return 0;
         }
         mac_ctx = hmac;
+    }
+
+    if (!SSL_IS_DTLS(ssl) && tlstree_mac && EVP_MD_CTX_ctrl(mac_ctx, EVP_MD_CTRL_TLSTREE, 0, seq) <= 0) {
+      EVP_MD_CTX_free(hmac);
+      return 0;
     }
 
     if (SSL_IS_DTLS(ssl)) {

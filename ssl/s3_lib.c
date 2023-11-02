@@ -111,7 +111,74 @@ static SSL_CIPHER tls13_ciphers[] = {
         SSL_HANDSHAKE_MAC_SHA256,
         128,
         128,
-    }
+    },
+#ifndef OPENSSL_NO_GOST
+/* https://tools.ietf.org/html/draft-smyshlyaev-tls13-gost-suites */
+    {
+        1,
+        "TLS_GOSTR341112_256_WITH_KUZNYECHIK_MGM_L", /* FIXME */
+        "TLS_GOSTR341112_256_WITH_KUZNYECHIK_MGM_L", /* FIXME */
+        TLS_GOSTR341112_256_WITH_KUZNYECHIK_MGM_L,
+        SSL_kANY,
+        SSL_aANY,
+        SSL_KUZNYECHIK_MGM,
+        SSL_AEAD,
+        TLS1_3_VERSION, TLS1_3_VERSION,
+        0, 0,
+        SSL_HIGH,
+        SSL_HANDSHAKE_MAC_GOST12_256 | TLS1_TLSTREE | TLS1_TLSTREE_L,
+        256,
+        256,
+    },
+    {
+        1,
+        "TLS_GOSTR341112_256_WITH_MAGMA_MGM_L", /* FIXME */
+        "TLS_GOSTR341112_256_WITH_MAGMA_MGM_L", /* FIXME */
+        TLS_GOSTR341112_256_WITH_MAGMA_MGM_L,
+        SSL_kANY,
+        SSL_aANY,
+        SSL_MAGMA_MGM,
+        SSL_AEAD,
+        TLS1_3_VERSION, TLS1_3_VERSION,
+        0, 0,
+        SSL_HIGH,
+        SSL_HANDSHAKE_MAC_GOST12_256 | TLS1_TLSTREE | TLS1_TLSTREE_L,
+        256,
+        256,
+    },
+    {
+        1,
+        "TLS_GOSTR341112_256_WITH_KUZNYECHIK_MGM_S", /* FIXME */
+        "TLS_GOSTR341112_256_WITH_KUZNYECHIK_MGM_S", /* FIXME */
+        TLS_GOSTR341112_256_WITH_KUZNYECHIK_MGM_S,
+        SSL_kANY,
+        SSL_aANY,
+        SSL_KUZNYECHIK_MGM,
+        SSL_AEAD,
+        TLS1_3_VERSION, TLS1_3_VERSION,
+        0, 0,
+        SSL_HIGH,
+        SSL_HANDSHAKE_MAC_GOST12_256 | TLS1_TLSTREE | TLS1_TLSTREE_S,
+        256,
+        256,
+    },
+    {
+        1,
+        "TLS_GOSTR341112_256_WITH_MAGMA_MGM_S", /* FIXME */
+        "TLS_GOSTR341112_256_WITH_MAGMA_MGM_S", /* FIXME */
+        TLS_GOSTR341112_256_WITH_MAGMA_MGM_S,
+        SSL_kANY,
+        SSL_aANY,
+        SSL_MAGMA_MGM,
+        SSL_AEAD,
+        TLS1_3_VERSION, TLS1_3_VERSION,
+        0, 0,
+        SSL_HIGH,
+        SSL_HANDSHAKE_MAC_GOST12_256 | TLS1_TLSTREE | TLS1_TLSTREE_S,
+        256,
+        256,
+    },
+#endif
 };
 
 /*
@@ -2665,6 +2732,54 @@ static SSL_CIPHER ssl3_ciphers[] = {
      0,
      0,
      },
+    {
+     1,
+     "GOST2012-KUZNYECHIK-KUZNYECHIKOMAC",
+     NULL,
+     0x0300C100,
+     SSL_kGOST18,
+     SSL_aGOST12,
+     SSL_KUZNYECHIK,
+     SSL_KUZNYECHIKOMAC,
+     TLS1_2_VERSION, TLS1_2_VERSION,
+     0, 0,
+     SSL_HIGH,
+     SSL_HANDSHAKE_MAC_GOST12_256 | TLS1_PRF_GOST12_256 | TLS1_TLSTREE,
+     256,
+     256,
+     },
+    {
+     1,
+     "GOST2012-MAGMA-MAGMAOMAC",
+     NULL,
+     0x0300C101,
+     SSL_kGOST18,
+     SSL_aGOST12,
+     SSL_MAGMA,
+     SSL_MAGMAOMAC,
+     TLS1_2_VERSION, TLS1_2_VERSION,
+     0, 0,
+     SSL_HIGH,
+     SSL_HANDSHAKE_MAC_GOST12_256 | TLS1_PRF_GOST12_256 | TLS1_TLSTREE,
+     256,
+     256,
+     },
+    {
+     1,
+     "GOST2012-GOST8912-IANA",
+     NULL,
+     0x0300C102,
+     SSL_kGOST,
+     SSL_aGOST12 | SSL_aGOST01,
+     SSL_eGOST2814789CNT12,
+     SSL_GOST89MAC12,
+     TLS1_VERSION, TLS1_2_VERSION,
+     0, 0,
+     SSL_HIGH,
+     SSL_HANDSHAKE_MAC_GOST12_256 | TLS1_PRF_GOST12_256 | TLS1_STREAM_MAC,
+     256,
+     256,
+     },
 #endif                          /* OPENSSL_NO_GOST */
 
 #ifndef OPENSSL_NO_IDEA
@@ -4351,6 +4466,11 @@ int ssl3_get_req_cert_type(SSL *s, WPACKET *pkt)
     if (s->version >= TLS1_VERSION && (alg_k & SSL_kGOST))
             return WPACKET_put_bytes_u8(pkt, TLS_CT_GOST01_SIGN)
                     && WPACKET_put_bytes_u8(pkt, TLS_CT_GOST12_SIGN)
+                    && WPACKET_put_bytes_u8(pkt, TLS_CT_GOST12_512_SIGN)
+                    && WPACKET_put_bytes_u8(pkt, TLS_CT_GOST12_SIGN_LEGACY)
+                    && WPACKET_put_bytes_u8(pkt, TLS_CT_GOST12_512_SIGN_LEGACY);
+    if (s->version >= TLS1_2_VERSION && (alg_k & SSL_kGOST18))
+            return WPACKET_put_bytes_u8(pkt, TLS_CT_GOST12_SIGN)
                     && WPACKET_put_bytes_u8(pkt, TLS_CT_GOST12_512_SIGN);
 #endif
 
@@ -4701,6 +4821,52 @@ EVP_PKEY *ssl_generate_pkey(EVP_PKEY *pm)
     return pkey;
 }
 #ifndef OPENSSL_NO_EC
+#ifndef OPENSSL_NO_GOST
+
+typedef struct tls_gost_group_param_st {
+    int nid;                    /* Curve params NID */
+    int alg_nid;                /* GOST algorithm nid */
+    const char *params;         /* GOST paramset mnemonics */
+} TLS_GOST_GROUP_PARAM;
+
+TLS_GOST_GROUP_PARAM gost_param[] = {
+    {NID_id_tc26_gost_3410_2012_256_paramSetA, NID_id_GostR3410_2012_256, "TCA"},
+    {NID_id_tc26_gost_3410_2012_256_paramSetB, NID_id_GostR3410_2012_256, "TCB"},
+    {NID_id_tc26_gost_3410_2012_256_paramSetC, NID_id_GostR3410_2012_256, "TCC"},
+    {NID_id_tc26_gost_3410_2012_256_paramSetD, NID_id_GostR3410_2012_256, "TCD"},
+    {NID_id_tc26_gost_3410_2012_512_paramSetA, NID_id_GostR3410_2012_512, "A"},
+    {NID_id_tc26_gost_3410_2012_512_paramSetB, NID_id_GostR3410_2012_512, "B"},
+    {NID_id_tc26_gost_3410_2012_512_paramSetC, NID_id_GostR3410_2012_512, "C"},
+};
+
+static EVP_PKEY_CTX *gost_pkey_nid2ctx(int nid)
+{
+	int i = 0;
+	TLS_GOST_GROUP_PARAM *pGostParam = NULL;
+  EVP_PKEY_CTX *pctx = NULL;
+
+	for (i = 0; i < OSSL_NELEM(gost_param); i++) {
+		if (gost_param[i].nid == nid) {
+			pGostParam = gost_param + i;
+			break;
+		}
+	}
+
+	if (pGostParam == NULL) {
+		return NULL;
+	}
+
+	pctx = EVP_PKEY_CTX_new_id(pGostParam->alg_nid, NULL);
+	if (pctx == NULL
+			|| EVP_PKEY_CTX_ctrl_str(pctx, "paramset", pGostParam->params) <= 0) {
+    EVP_PKEY_CTX_free(pctx);
+    return NULL;
+	}
+
+	return pctx;
+}
+
+#endif
 /* Generate a private key from a group ID */
 EVP_PKEY *ssl_generate_pkey_group(SSL *s, uint16_t id)
 {
@@ -4717,8 +4883,13 @@ EVP_PKEY *ssl_generate_pkey_group(SSL *s, uint16_t id)
     gtype = ginf->flags & TLS_CURVE_TYPE;
     if (gtype == TLS_CURVE_CUSTOM)
         pctx = EVP_PKEY_CTX_new_id(ginf->nid, NULL);
+#ifndef OPENSSL_NO_GOST
+    else if (gtype == TLS_CURVE_GOST)
+		    pctx = gost_pkey_nid2ctx(ginf->nid);
+#endif
     else
         pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+
     if (pctx == NULL) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_SSL_GENERATE_PKEY_GROUP,
                  ERR_R_MALLOC_FAILURE);
@@ -4729,7 +4900,7 @@ EVP_PKEY *ssl_generate_pkey_group(SSL *s, uint16_t id)
                  ERR_R_EVP_LIB);
         goto err;
     }
-    if (gtype != TLS_CURVE_CUSTOM
+    if (gtype != TLS_CURVE_CUSTOM && gtype != TLS_CURVE_GOST
             && EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx, ginf->nid) <= 0) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_SSL_GENERATE_PKEY_GROUP,
                  ERR_R_EVP_LIB);
@@ -4767,13 +4938,21 @@ EVP_PKEY *ssl_generate_param_group(uint16_t id)
         return NULL;
     }
 
+#ifndef OPENSSL_NO_GOST
+    if ((ginf->flags & TLS_CURVE_TYPE) == TLS_CURVE_GOST)
+         pctx = gost_pkey_nid2ctx(ginf->nid);
+    else
+#endif
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+
     if (pctx == NULL)
         goto err;
     if (EVP_PKEY_paramgen_init(pctx) <= 0)
         goto err;
-    if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx, ginf->nid) <= 0)
+    if ((ginf->flags & TLS_CURVE_TYPE) != TLS_CURVE_GOST) {
+      if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx, ginf->nid) <= 0)
         goto err;
+    }
     if (EVP_PKEY_paramgen(pctx, &pkey) <= 0) {
         EVP_PKEY_free(pkey);
         pkey = NULL;

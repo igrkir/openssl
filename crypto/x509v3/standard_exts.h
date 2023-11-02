@@ -68,6 +68,8 @@ static const X509V3_EXT_METHOD *standard_exts[] = {
     &v3_ct_scts[1],
     &v3_ct_scts[2],
 #endif
+    &v3_subject_sign_tool,
+    &v3_issuer_sign_tool,
     &v3_tls_feature,
     &v3_ext_admission
 };

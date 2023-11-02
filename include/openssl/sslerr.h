@@ -11,9 +11,7 @@
 #ifndef HEADER_SSLERR_H
 # define HEADER_SSLERR_H
 
-# ifndef HEADER_SYMHACKS_H
-#  include <openssl/symhacks.h>
-# endif
+# include <openssl/symhacks.h>
 
 # ifdef  __cplusplus
 extern "C"
@@ -297,6 +295,7 @@ int ERR_load_SSL_strings(void);
 # define SSL_F_TLS_CONSTRUCT_CKE_DHE                      404
 # define SSL_F_TLS_CONSTRUCT_CKE_ECDHE                    405
 # define SSL_F_TLS_CONSTRUCT_CKE_GOST                     406
+# define SSL_F_TLS_CONSTRUCT_CKE_GOST18                   642
 # define SSL_F_TLS_CONSTRUCT_CKE_PSK_PREAMBLE             407
 # define SSL_F_TLS_CONSTRUCT_CKE_RSA                      409
 # define SSL_F_TLS_CONSTRUCT_CKE_SRP                      410
@@ -421,6 +420,7 @@ int ERR_load_SSL_strings(void);
 # define SSL_F_TLS_PROCESS_CKE_DHE                        411
 # define SSL_F_TLS_PROCESS_CKE_ECDHE                      412
 # define SSL_F_TLS_PROCESS_CKE_GOST                       413
+# define SSL_F_TLS_PROCESS_CKE_GOST18                     641
 # define SSL_F_TLS_PROCESS_CKE_PSK_PREAMBLE               414
 # define SSL_F_TLS_PROCESS_CKE_RSA                        415
 # define SSL_F_TLS_PROCESS_CKE_SRP                        416

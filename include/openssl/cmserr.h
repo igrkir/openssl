@@ -11,9 +11,7 @@
 #ifndef HEADER_CMSERR_H
 # define HEADER_CMSERR_H
 
-# ifndef HEADER_SYMHACKS_H
-#  include <openssl/symhacks.h>
-# endif
+# include <openssl/symhacks.h>
 
 # include <openssl/opensslconf.h>
 
@@ -32,6 +30,7 @@ int ERR_load_CMS_strings(void);
 #  define CMS_F_CMS_ADD0_RECIPIENT_KEY                     100
 #  define CMS_F_CMS_ADD0_RECIPIENT_PASSWORD                165
 #  define CMS_F_CMS_ADD1_RECEIPTREQUEST                    158
+#  define CMS_F_CMS_ADD1_RECIPIENT                         181
 #  define CMS_F_CMS_ADD1_RECIPIENT_CERT                    101
 #  define CMS_F_CMS_ADD1_SIGNER                            102
 #  define CMS_F_CMS_ADD1_SIGNINGTIME                       103
@@ -47,6 +46,7 @@ int ERR_load_CMS_strings(void);
 #  define CMS_F_CMS_DECRYPT_SET1_KEY                       113
 #  define CMS_F_CMS_DECRYPT_SET1_PASSWORD                  166
 #  define CMS_F_CMS_DECRYPT_SET1_PKEY                      114
+#  define CMS_F_CMS_DECRYPT_SET1_PKEY_AND_PEER             182
 #  define CMS_F_CMS_DIGESTALGORITHM_FIND_CTX               115
 #  define CMS_F_CMS_DIGESTALGORITHM_INIT_BIO               116
 #  define CMS_F_CMS_DIGESTEDDATA_DO_FINAL                  117
@@ -59,6 +59,9 @@ int ERR_load_CMS_strings(void);
 #  define CMS_F_CMS_ENCRYPTEDDATA_ENCRYPT                  122
 #  define CMS_F_CMS_ENCRYPTEDDATA_SET1_KEY                 123
 #  define CMS_F_CMS_ENVELOPEDDATA_CREATE                   124
+#  define CMS_F_CMS_ENVELOPEDDATA_DECRYPTION_INIT_BIO      184
+#  define CMS_F_CMS_ENVELOPEDDATA_ENCRYPTION_INIT_BIO      185
+#  define CMS_F_CMS_ENVELOPEDDATA_FINAL                    186
 #  define CMS_F_CMS_ENVELOPEDDATA_INIT_BIO                 125
 #  define CMS_F_CMS_ENVELOPED_DATA_INIT                    126
 #  define CMS_F_CMS_ENV_ASN1_CTRL                          171

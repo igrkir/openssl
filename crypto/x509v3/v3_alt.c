@@ -25,26 +25,59 @@ static int copy_issuer(X509V3_CTX *ctx, GENERAL_NAMES *gens);
 static int do_othername(GENERAL_NAME *gen, const char *value, X509V3_CTX *ctx);
 static int do_dirname(GENERAL_NAME *gen, const char *value, X509V3_CTX *ctx);
 
+static int i2r_GENERAL_NAMES(X509V3_EXT_METHOD *method,
+                                        GENERAL_NAMES *gens, BIO *out,
+                                        int indent);
+
+static int GENERAL_NAME_oneline_ex(char *name, GENERAL_NAME *gen, int len)
+{
+	int i;
+	BIO *mem = NULL;
+	BUF_MEM *bptr;
+
+	mem = BIO_new(BIO_s_mem());
+	if (mem == 0)
+		return 0;
+
+	switch (gen->type) {
+		case GEN_DIRNAME:
+			X509_NAME_print_ex(mem, gen->d.dirn, 0, XN_FLAG_SEP_COMMA_PLUS | ASN1_STRFLGS_UTF8_CONVERT);
+			break;
+	}
+
+	BIO_get_mem_ptr(mem, &bptr);
+	i = BIO_set_close(mem, BIO_NOCLOSE);
+	BIO_free(mem); 
+	if (i<=0) 
+		return 0;
+
+	if(bptr->length < len)
+		strncpy(name, bptr->data, bptr->length);
+	else
+		strncpy(name, bptr->data, len);
+	return 1;
+}
+
 const X509V3_EXT_METHOD v3_alt[3] = {
     {NID_subject_alt_name, 0, ASN1_ITEM_ref(GENERAL_NAMES),
      0, 0, 0, 0,
      0, 0,
-     (X509V3_EXT_I2V) i2v_GENERAL_NAMES,
+     NULL, /* (X509V3_EXT_I2V) i2v_GENERAL_NAMES, */
      (X509V3_EXT_V2I)v2i_subject_alt,
-     NULL, NULL, NULL},
+     (X509V3_EXT_I2R)i2r_GENERAL_NAMES, NULL, NULL},
 
     {NID_issuer_alt_name, 0, ASN1_ITEM_ref(GENERAL_NAMES),
      0, 0, 0, 0,
      0, 0,
      (X509V3_EXT_I2V) i2v_GENERAL_NAMES,
      (X509V3_EXT_V2I)v2i_issuer_alt,
-     NULL, NULL, NULL},
+     (X509V3_EXT_I2R)i2r_GENERAL_NAMES/*NULL*/, NULL, NULL},
 
     {NID_certificate_issuer, 0, ASN1_ITEM_ref(GENERAL_NAMES),
      0, 0, 0, 0,
      0, 0,
      (X509V3_EXT_I2V) i2v_GENERAL_NAMES,
-     NULL, NULL, NULL, NULL},
+     NULL, (X509V3_EXT_I2R)i2r_GENERAL_NAMES/*NULL*/, NULL, NULL},
 };
 
 STACK_OF(CONF_VALUE) *i2v_GENERAL_NAMES(X509V3_EXT_METHOD *method,
@@ -80,7 +113,7 @@ STACK_OF(CONF_VALUE) *i2v_GENERAL_NAME(X509V3_EXT_METHOD *method,
                                        STACK_OF(CONF_VALUE) *ret)
 {
     unsigned char *p;
-    char oline[256], htmp[5];
+    char oline[1024], htmp[5];
     int i;
 
     switch (gen->type) {
@@ -118,7 +151,7 @@ STACK_OF(CONF_VALUE) *i2v_GENERAL_NAME(X509V3_EXT_METHOD *method,
         break;
 
     case GEN_DIRNAME:
-        if (X509_NAME_oneline(gen->d.dirn, oline, sizeof(oline)) == NULL
+        if (GENERAL_NAME_oneline_ex(oline, gen, sizeof(oline)) <= 0
                 || !X509V3_add_value("DirName", oline, &ret))
             return NULL;
         break;
@@ -154,6 +187,96 @@ STACK_OF(CONF_VALUE) *i2v_GENERAL_NAME(X509V3_EXT_METHOD *method,
     }
     return ret;
 }
+
+/* beldmit */
+int i2r_GENERAL_NAME(X509V3_EXT_METHOD *method,
+                                       GENERAL_NAME *gen, BIO *out,
+                                       int indent)
+{
+    unsigned char *p;
+    char oline[256], htmp[5];
+    int i;
+ 		BIO_printf(out, "%*s", indent, "");
+    switch (gen->type) {
+    case GEN_OTHERNAME:
+        BIO_write(out, "othername: <unsupported>", 24);
+        break;
+
+    case GEN_X400:
+        BIO_write(out, "X400Name: <unsupported>", 24);
+        break;
+
+    case GEN_EDIPARTY:
+        BIO_write(out, "EdiPartyName: <unsupported>", 28);
+        break;
+
+    case GEN_EMAIL:
+        BIO_write(out, "email: ", 7); 
+				BIO_write(out, gen->d.ia5->data, gen->d.ia5->length);
+        break;
+
+    case GEN_DNS:
+        BIO_write(out, "DNS: ", 5);
+				BIO_write(out, gen->d.ia5->data, gen->d.ia5->length);
+        break;
+
+    case GEN_URI:
+        BIO_write(out, "URI: ", 5);
+				BIO_write(out, gen->d.ia5->data, gen->d.ia5->length);
+        break;
+
+    case GEN_DIRNAME:
+        BIO_write(out, "DirName: ", 9); 
+				X509_NAME_print_ex(out, gen->d.dirn, 0, XN_FLAG_SEP_COMMA_PLUS|ASN1_STRFLGS_UTF8_CONVERT);
+        break;
+
+    case GEN_IPADD:
+        p = gen->d.ip->data;
+        if (gen->d.ip->length == 4)
+            BIO_snprintf(oline, sizeof oline,
+                         "%d.%d.%d.%d", p[0], p[1], p[2], p[3]);
+        else if (gen->d.ip->length == 16) {
+            oline[0] = 0;
+            for (i = 0; i < 8; i++) {
+                BIO_snprintf(htmp, sizeof htmp, "%X", p[0] << 8 | p[1]);
+                p += 2;
+                strcat(oline, htmp);
+                if (i != 7)
+                    strcat(oline, ":");
+            }
+        } else {
+            BIO_write(out, "IP Address: <invalid>", 22);
+            break;
+        }
+        BIO_write(out, "IP Address: ", 12);
+				BIO_write(out, oline, strlen(oline));
+        break;
+
+    case GEN_RID:
+        i2t_ASN1_OBJECT(oline, 256, gen->d.rid);
+        BIO_write(out, "Registered ID: ", 15);
+				BIO_write(out, oline, strlen(oline));
+        break;
+    }
+		BIO_write(out, "\n", 1);
+    return 1;
+}
+
+int i2r_GENERAL_NAMES(X509V3_EXT_METHOD *method,
+                                        GENERAL_NAMES *gens, BIO *out,
+                                        int indent)
+{
+    int i;
+    GENERAL_NAME *gen;
+    for (i = 0; i < sk_GENERAL_NAME_num(gens); i++) {
+        gen = sk_GENERAL_NAME_value(gens, i);
+        if (!i2r_GENERAL_NAME(method, gen, out, indent))
+					return 0;
+    }
+    return 1;
+}
+
+/* beldmit */
 
 int GENERAL_NAME_print(BIO *out, GENERAL_NAME *gen)
 {

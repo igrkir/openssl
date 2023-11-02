@@ -624,7 +624,7 @@ int tls_parse_ctos_key_share(SSL *s, PACKET *pkt, unsigned int context, X509 *x,
 
     if (s->hit && (s->ext.psk_kex_mode & TLSEXT_KEX_MODE_FLAG_KE_DHE) == 0)
         return 1;
-
+/* FIXME beldmit GOST */
     /* Sanity check */
     if (s->s3->peer_tmp != NULL) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_PARSE_CTOS_KEY_SHARE,
@@ -1622,7 +1622,9 @@ EXT_RETURN tls_construct_stoc_etm(SSL *s, WPACKET *pkt, unsigned int context,
     if (s->s3->tmp.new_cipher->algorithm_mac == SSL_AEAD
         || s->s3->tmp.new_cipher->algorithm_enc == SSL_RC4
         || s->s3->tmp.new_cipher->algorithm_enc == SSL_eGOST2814789CNT
-        || s->s3->tmp.new_cipher->algorithm_enc == SSL_eGOST2814789CNT12) {
+        || s->s3->tmp.new_cipher->algorithm_enc == SSL_eGOST2814789CNT12
+        || s->s3->tmp.new_cipher->algorithm_enc == SSL_MAGMA
+        || s->s3->tmp.new_cipher->algorithm_enc == SSL_KUZNYECHIK) {
         s->ext.use_etm = 0;
         return EXT_RETURN_NOT_SENT;
     }
@@ -1681,6 +1683,7 @@ EXT_RETURN tls_construct_stoc_key_share(SSL *s, WPACKET *pkt,
                                         unsigned int context, X509 *x,
                                         size_t chainidx)
 {
+/* FIXME beldmit GOST */
 #ifndef OPENSSL_NO_TLS1_3
     unsigned char *encodedPoint;
     size_t encoded_pt_len = 0;
